@@ -1,0 +1,108 @@
+version: "3.8"
+
+networks:
+  laravel:
+    driver: bridge
+
+services:
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx
+    ports:
+    - "8088:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+      - mysql
+    networks:
+      - laravel
+
+  mysql:
+    image: mysql:latest
+    container_name: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "4306:3306"
+    volumes:
+    - ./mysql:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: larawell
+      MYSQL_USER: larawell
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+      TZ: "Asia/Kolkata"
+    networks:
+      - laravel
+
+
+  php:
+    build:
+      args:
+        user: sudhakar
+        uid: 1000
+      context: ./
+      dockerfile: Dockerfile
+    container_name: php
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+    - ./src:/var/www/html
+    ports:
+    - "9000:9000"
+    networks:
+      - laravel
+
+  composer:
+    image: composer:latest
+    container_name: composer
+    volumes:
+    - ./src:/var/www/html
+    working_dir: /var/www/html
+    networks:
+      - laravel
+
+  npm:
+    image: node:13.7-alpine
+    container_name: npm
+    volumes:
+    - ./src:/var/www/html
+    working_dir: /var/www/html
+    entrypoint: ['npm']
+    networks:
+      - laravel
+
+  artisan:
+    build:
+      args:
+        user: sudhakar
+        uid: 1000
+      context: ./
+      dockerfile: Dockerfile
+    container_name: artisan
+    volumes:
+    - ./src:/var/www/html
+    depends_on:
+      - mysql
+    working_dir: /var/www/html
+    entrypoint: ['/var/www/html/artisan']
+    networks:
+      - laravel
+
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+      ADMINER_DESIGN: mvt
+    restart: unless-stopped
+    ports:
+      - 8800:8080
+    networks:
+      - laravel
